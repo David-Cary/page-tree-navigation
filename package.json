@@ -1,8 +1,11 @@
 {
   "name": "page-tree-navigation",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Provides utility classes for organizing content pages in a nested structure.",
-  "main": "index.js",
+  "main": "lib/index.js",
+  "files": [
+    "lib/**/*"
+  ],
   "scripts": {
     "lint": "eslint --ext .ts src",
     "lint-fix": "eslint --fix --ext .ts src",
