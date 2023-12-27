@@ -342,6 +342,43 @@ export class PhasedPathParser<T = any> implements ReversibleTextParser<Array<T |
 }
 
 /**
+ * Handles splitting named segments using a particular delimiter.
+ * @class
+ * @implements ReversibleTextParser<string[]>
+ * @property {string} delimiter - character used to mark substring breakpoints
+ */
+export class KeyedSegmentsParser implements ReversibleTextParser<Record<string, string>> {
+  readonly delimiter: string
+  keys: string[]
+
+  constructor (
+    keys: string[] = [],
+    delimiter = '.'
+  ) {
+    this.keys = keys
+    this.delimiter = delimiter
+  }
+
+  parse (source: string): Record<string, string> {
+    const values: Record<string, string> = {}
+    const steps = source.split(this.delimiter)
+    for (let i = 0; i < this.keys.length; i++) {
+      const key = this.keys[i]
+      values[key] = steps[i]
+    }
+    return values
+  }
+
+  stringify (source: Record<string, string>): string {
+    const path: string[] = this.keys.map(
+      key => source[key]
+    )
+    const pathText = path.join(this.delimiter)
+    return pathText
+  }
+}
+
+/**
  * Wraps a key in an object for easy identification.
  * @interface
  * @property {string} key - key being stored
@@ -461,6 +498,9 @@ export class KeyedURLValuesParser implements ReversibleTextParser<Record<string,
           url.searchParams.set(key, searchValue)
         }
       }
+    }
+    if (this.template.origin === '') {
+      return url.href.substring(url.origin.length)
     }
     return url.href
   }

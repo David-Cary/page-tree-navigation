@@ -138,6 +138,19 @@ export declare class PhasedPathParser<T = any> implements ReversibleTextParser<A
     stringify(source: Array<T | string>): string;
 }
 /**
+ * Handles splitting named segments using a particular delimiter.
+ * @class
+ * @implements ReversibleTextParser<string[]>
+ * @property {string} delimiter - character used to mark substring breakpoints
+ */
+export declare class KeyedSegmentsParser implements ReversibleTextParser<Record<string, string>> {
+    readonly delimiter: string;
+    keys: string[];
+    constructor(keys?: string[], delimiter?: string);
+    parse(source: string): Record<string, string>;
+    stringify(source: Record<string, string>): string;
+}
+/**
  * Wraps a key in an object for easy identification.
  * @interface
  * @property {string} key - key being stored

@@ -123,16 +123,32 @@ You may have noticed that generating hyperlinks by traversal paths is accurate b
 
 One way to mitigate these is use the page's id and/or local name in the hyperlink string.  To help with this, we've provided the `NamedPageRouteParser` class.  Such parsers will try to replace part of the path with page id or local name strings where possible.
 
-To create one of these route parsers you'll need to provide it parameter parser that can convert a string to a string map, such as the `KeyedURLValuesParser`.  You can pass that in as the first constructor parameter and set it through the "paramParser" property.  Said constructor also accepts the following additional parameters:
-  * contentParser - Used to break down any references to nested content within a page.  Use this if your page content can have nested children you want to reference.
-  * pathParser - Used to resolve the part of the page path after the identifier.  Separate from the content parser as they may have different conventions.
-  * context - The root object to use when trying to parse a url to a content route.
+By default it handles these separating the page path and content subpath with a slash.  The page pathing uses a tilde ("~") at the start to mark an id search and ".~" to mark a local name search, with period separator between child indices.  In contrast, the content path just used a period delimiter.
 
-Note that both of those optional parsers default to phased path parsers with a delimited path parser as their splitter.  That means by default the parser expects dot notation for both it's page path and content path.
+For example, `~main.~terms.0/body.text` would convert to:
+```
+  [
+    { key: 'id', value: 'main' },
+    { key: 'localName', value: 'terms' },
+    'children',
+    0,
+    'content',
+    'body',
+    'text'
+  ]
+```
 
-As for the parameter parser, you should set it up to handle the following parameters:
-  * pageId - The id of the lowest level page with such a property in the target path.  For example, if a page with an id of "main" had a subpage with an id of "intro" a route to that subpage or it's content would use "intro" as the page id.
-  * pagePath - An abbreviated version of the path following the above node with an id value.  If any local names where in that part of the path it will replace the part of the path between the named node and it's nearest named or identified ancestor with it's local name.  That means the first part of the path will be a series of delimited local names while the latter half will be delimited indices.  For example, you might see "main.intro.0".
-  * contentPath - The path to any nested subcontent within the target page.
+You can override that "pagePath/contentPath" breakdown by passing a different string map parser in as the first parameter, such a `KeyedURLValuesParser`.  Such parser should use "pagePath" and "contentPath" as it's parameters.
 
-Note that we could have attached the page id to the front of the page path much like we did with local names.  However, that would have made it hard to differentiate between a path that started with a local name vs on that started with an id.
+Note that this still keeps the page path encoding.  To change that you'd need to change the "pathParser" property.  This defaults to a `PageContentPathParser`.  Those are composed of the following subparsers:
+  * paramParser - Extracts pagePath and contentPath parameters from the provided string.
+  * pageParser - Converts the page path to specific terms.  This is the part that provides the rules for marking searches with a special prefix.
+  * contentParser - Converts the content path to substrings.
+
+Prior to version 1.1.0 the constructor had more parameters, but the functionality has since been split amoung sub-components.
+
+Note that the `NamedPageRouteParser` is a specialized `RouteSearchParser` subclass.  Should you want to make your own such parser to handle string to route conversions, you can create one with the following parameters:
+  * pathParser - Converts strings to search terms and vice versa.
+  * searchResolver - Handles resolving the above search within the provided context.
+  * getSearch - Extracts a search path from a traversal route.
+  * context - Object to search within then resolving a route.

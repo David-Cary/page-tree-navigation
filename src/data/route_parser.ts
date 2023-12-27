@@ -1,6 +1,5 @@
 import {
   type ValidKey,
-  type CommonKey,
   type TraversalRoute,
   ValueVertexFactory,
   type AnyObject,
@@ -11,15 +10,13 @@ import {
 } from '../data/pages'
 import {
   type ReversibleTextParser,
-  DelimitedPathParser,
-  PhasedPathParser,
-  ValidKeyParser,
-  NumericTextParser
+  KeyedSegmentsParser,
+  DelimitedPathParser
 } from '../data/links'
 import {
   SearchPathResolver,
   PropertySearchFactory,
-  type KeyValuePair
+  type ValueMap
 } from '../data/search'
 
 /**
@@ -47,16 +44,349 @@ export class PageTreeSearchResolver extends SearchPathResolver {
 }
 
 /**
- * Breaks routes to nested pages and their content into distinct parts.
+ * Describes how a term should be resolved based on the associated prefix.
  * @interface
- * @property {string | undefined} pageId - unique page identifier
- * @property {CommonKey[] | undefined} pagePath - remaining path steps after the identifier
- * @property {ValidKey[] | undefined} contentPath - path to nested content element of the target page
+ * @template T
+ * @property {string} prefix - preceeding characters that mark any matching text
+ * @property {string | undefined} decodedPrefix - search term to be placed before the converted text
+ * @property {((source: T) => boolean) | undefined} check - returns true if the target term should be parsed
+ * @property {ReversibleTextParser<T>} parser - handles converting the target term to a string and vice versa
  */
-export interface NamedPageRouteParameters {
-  pageId?: string
-  pagePath?: CommonKey[]
-  contentPath?: ValidKey[]
+export interface PrefixedPathStepRule<T> {
+  prefix: string
+  decodedPrefix?: string
+  check?: (source: T) => boolean
+  parser?: ReversibleTextParser<T>
+}
+
+/**
+ * Converts a string to key value pair where the value is the provided string.
+ * @class
+ * @extends ReversibleTextParser<ValueMap | string>
+ * @property {string} key - key to be used in each generated key value pair
+ * @property {((value: string) => boolean) | undefined} validate - optional function to check the provided value, resulting in string instead of a key value pair if that check fails
+ */
+export class KeyedPropertySearchParser implements ReversibleTextParser<ValueMap | string> {
+  key: string
+  validate?: (value: string) => boolean
+
+  constructor (
+    key: string,
+    validate?: (value: string) => boolean
+  ) {
+    this.key = key
+    this.validate = validate
+  }
+
+  parse (source: string): (ValueMap | string) {
+    if (this.validate == null || this.validate(source)) {
+      const result = {
+        key: this.key,
+        value: source
+      }
+      return result
+    }
+    return source
+  }
+
+  stringify (source: (ValueMap | string)): string {
+    return typeof source === 'object' ? String(source.value) : source
+  }
+}
+
+/**
+ * Converts the provided search string to a series of search terms and vice versa.
+ * @class
+ * @extends ReversibleTextParser<Array<ValueMap | ValidKey>>
+ * @property {ReversibleTextParser<ValueMap | string> | undefined} headParser - provides special handling to first section of the target path
+ * @property {Array<PrefixedPathStepRule<ValueMap | string>>} rules - describes how to handle text segments based on the preceding delimiter
+ */
+export class SearchPathParser implements ReversibleTextParser<Array<ValueMap | ValidKey>> {
+  readonly headParser?: ReversibleTextParser<ValueMap | string>
+  readonly rules: Array<PrefixedPathStepRule<ValueMap | string>>
+
+  constructor (
+    rules: Array<PrefixedPathStepRule<ValueMap | string>> = [],
+    headParser?: ReversibleTextParser<ValueMap | string>
+  ) {
+    this.headParser = headParser
+    this.rules = rules
+  }
+
+  parse (source: string): Array<ValueMap | ValidKey> {
+    let steps: Array<ValueMap | ValidKey> = []
+    let activeRule: PrefixedPathStepRule<ValueMap | string> | undefined
+    let priorText = ''
+    let remainder = source
+    while (remainder !== '') {
+      const matchingRule = this.rules.find(
+        rule => remainder.startsWith(rule.prefix)
+      )
+      if (matchingRule != null) {
+        if (activeRule != null) {
+          const substeps = this.parseVia(priorText, activeRule)
+          steps = steps.concat(substeps)
+        } else if (priorText !== '') {
+          const substep = (this.headParser != null)
+            ? this.headParser.parse(priorText)
+            : priorText
+          steps.push(substep)
+        }
+        priorText = ''
+        activeRule = matchingRule
+        remainder = remainder.substring(matchingRule.prefix.length)
+      } else {
+        priorText += remainder[0]
+        remainder = remainder.substring(1)
+      }
+    }
+    if (activeRule != null) {
+      const substeps = this.parseVia(priorText, activeRule)
+      steps = steps.concat(substeps)
+    }
+    return steps
+  }
+
+  parseVia (
+    source: string,
+    rule: PrefixedPathStepRule<ValueMap | string>
+  ): Array<ValueMap | ValidKey> {
+    const results: Array<ValueMap | ValidKey> = []
+    if (rule.decodedPrefix != null) {
+      results.push(rule.decodedPrefix)
+    }
+    if (rule.parser != null) {
+      const term = rule.parser.parse(source)
+      results.push(term)
+    } else {
+      const num = Number(source)
+      const term = isNaN(num) ? source : num
+      results.push(term)
+    }
+    return results
+  }
+
+  stringify (source: Array<ValueMap | ValidKey>): string {
+    let pathText = ''
+    const delimiterRule = this.rules.find(
+      rule => rule.check == null && rule.decodedPrefix == null
+    )
+    let activeDelimiter: string | undefined
+    for (let i = 0; i < source.length; i++) {
+      const step = source[i]
+      const term = typeof step === 'object' ? step : String(step)
+      const matchingRule = this.rules.find(
+        rule => rule.check?.(term) ?? rule.decodedPrefix === term
+      )
+      if (matchingRule != null) {
+        pathText += matchingRule.prefix
+        if (matchingRule.parser != null) {
+          pathText += matchingRule.parser.stringify(term)
+          activeDelimiter = undefined
+        } else {
+          activeDelimiter = matchingRule.prefix
+        }
+      } else if (this.headParser != null && i === 0) {
+        pathText += this.headParser.stringify(term)
+      } else {
+        if (activeDelimiter == null && delimiterRule != null) {
+          pathText += delimiterRule.prefix
+        }
+        pathText += String(step)
+        activeDelimiter = undefined
+      }
+    }
+    return pathText
+  }
+}
+
+/**
+ * Callback for generating a search path that corresponds to the provided route.
+ * @type
+ * @param {TraversalRoute} route - traversal route to be evaluated
+ * @returns {Array<ValueMap | ValidKey>}
+ */
+export type GetRouteSearchCallback = (route: TraversalRoute) => Array<ValueMap | ValidKey>
+
+/**
+ * Resolves the provided search string to a traversal route and generates such strings from a route.
+ * @class
+ * @extends ReversibleTextParser<TraversalRoute>
+ * @property {ReversibleTextParser<Array<ValueMap | ValidKey>>} pathParser - used to convert strings to search paths and vice versa
+ * @property {SearchPathResolver} searchResolver - used to resolve a search path to a traversal route
+ * @property {GetRouteSearchCallback} getSearch - generates a search path from a traversal route
+ * @property {AnyObject} context - object the search should be performed on
+ */
+export class RouteSearchParser implements ReversibleTextParser<TraversalRoute> {
+  pathParser: ReversibleTextParser<Array<ValueMap | ValidKey>>
+  searchResolver: SearchPathResolver
+  getSearch: GetRouteSearchCallback
+  context: AnyObject
+
+  constructor (
+    pathParser: ReversibleTextParser<Array<ValueMap | ValidKey>> = new SearchPathParser(),
+    searchResolver = new SearchPathResolver(),
+    getSearch: GetRouteSearchCallback,
+    context: AnyObject = []
+  ) {
+    this.pathParser = pathParser
+    this.searchResolver = searchResolver
+    this.getSearch = getSearch
+    this.context = context
+  }
+
+  parse (source: string): TraversalRoute {
+    const path = this.pathParser.parse(source)
+    const search = this.searchResolver.resolve(this.context, path, 1)
+    if (search.results.length > 0) {
+      return search.results[0]
+    }
+    return createRootRoute(this.context)
+  }
+
+  stringify (source: TraversalRoute): string {
+    const searchPath = this.getSearch(source)
+    const pathText = this.pathParser.stringify(searchPath)
+    return pathText
+  }
+}
+
+/**
+ * Creates a unique search path to the content targeted to by a given traversal route.
+ * @function
+ * @param {TraversalRoute} route - traversal route to be evaluated
+ * @returns {Array<ValueMap | ValidKey>}
+ */
+export function getNamedPageSearch (route: TraversalRoute): Array<ValueMap | ValidKey> {
+  const steps: Array<ValueMap | ValidKey> = []
+  let noName = true
+  for (let i = route.path.length - 1; i >= 0; i--) {
+    const vertexIndex = i + 1
+    const target = vertexIndex < route.vertices.length
+      ? route.vertices[vertexIndex].value
+      : route.target
+    if (
+      typeof target === 'object' &&
+      target != null
+    ) {
+      if ('id' in target) {
+        steps.unshift({
+          key: 'id',
+          value: target.id
+        })
+        break
+      }
+      if ('localName' in target) {
+        steps.unshift({
+          key: 'localName',
+          value: target.localName
+        })
+        noName = false
+        continue
+      }
+    }
+    if (noName) {
+      const step = route.path[i]
+      steps.unshift(step)
+    }
+  }
+  return steps
+}
+
+/**
+ * Provides default handling for searches with path id and local name markers.
+ * @class
+ * @extends SearchPathParser
+ */
+export class NamedPagePathParser extends SearchPathParser {
+  constructor (expanded = false) {
+    super(
+      [
+        {
+          prefix: '.~',
+          check: (source) => typeof source === 'object' && source.key === 'localName',
+          parser: new KeyedPropertySearchParser('localName')
+        },
+        {
+          prefix: '~',
+          check: (source) => typeof source === 'object' && source.key === 'id',
+          parser: new KeyedPropertySearchParser('id')
+        },
+        {
+          prefix: '.'
+        }
+      ]
+    )
+    if (expanded) {
+      this.rules[2].decodedPrefix = 'children'
+    }
+  }
+}
+
+/**
+ * Handles pathing to page content, with the page path and the content subpath having their own parsers.
+ * @class
+ * @extends ReversibleTextParser<Array<ValueMap | ValidKey>>
+ * @property {ReversibleTextParser<Record<string, string>>} paramParser - extracts route parameters from a string
+ * @property {ReversibleTextParser<Array<ValueMap | ValidKey>>} pageParser - handles the page specific part of the path
+ * @property {ReversibleTextParser<string[]>} contentParser - handles the subpath to the page's content
+ */
+export class PageContentPathParser implements ReversibleTextParser<Array<ValueMap | ValidKey>> {
+  paramParser: ReversibleTextParser<Record<string, string>>
+  pageParser: ReversibleTextParser<Array<ValueMap | ValidKey>>
+  contentParser: ReversibleTextParser<string[]>
+
+  constructor (
+    paramParser: ReversibleTextParser<Record<string, string>> = new KeyedSegmentsParser(
+      ['pagePath', 'contentPath'],
+      '/'
+    ),
+    pageParser: ReversibleTextParser<Array<ValueMap | ValidKey>> = new NamedPagePathParser(true),
+    contentParser: ReversibleTextParser<string[]> = new DelimitedPathParser('.')
+  ) {
+    this.paramParser = paramParser
+    this.pageParser = pageParser
+    this.contentParser = contentParser
+  }
+
+  parse (source: string): Array<ValueMap | ValidKey> {
+    const params = this.paramParser.parse(source)
+    const pagePath = params.pagePath != null
+      ? this.pageParser.parse(params.pagePath)
+      : []
+    if (params.contentPath != null) {
+      const contentPath = this.contentParser.parse(params.contentPath)
+      contentPath.unshift('content')
+      const fullPath = pagePath.concat(contentPath)
+      return fullPath
+    }
+    return pagePath
+  }
+
+  stringify (source: Array<ValueMap | ValidKey>): string {
+    const subpaths = this.getSubpaths(source)
+    const params: Record<string, string> = {
+      pagePath: this.pageParser.stringify(subpaths.pagePath)
+    }
+    if (subpaths.contentPath != null) {
+      const contentPath = subpaths.contentPath.map(step => String(step))
+      params.contentPath = this.contentParser.stringify(contentPath)
+    }
+    const resolvedPath = this.paramParser.stringify(params)
+    return resolvedPath
+  }
+
+  getSubpaths (source: Array<ValueMap | ValidKey>): Record<string, Array<ValueMap | ValidKey>> {
+    const subpaths: Record<string, Array<ValueMap | ValidKey>> = {}
+    const contentIndex = source.indexOf('content')
+    if (contentIndex >= 0) {
+      subpaths.pagePath = source.slice(0, contentIndex)
+      subpaths.contentPath = source.slice(contentIndex + 1)
+    } else {
+      subpaths.pagePath = source
+    }
+    return subpaths
+  }
 }
 
 /**
@@ -64,184 +394,18 @@ export interface NamedPageRouteParameters {
  * @class
  * @extends ReversibleTextParser<TraversalRoute>
  * @property {ReversibleTextParser<Record<string, string>>} paramParser - extracts route parameters from a string
- * @property {ReversibleTextParser<CommonKey[]>} pathParser - breaks the pagePath string into it's component keys
- * @property {ReversibleTextParser<ValidKey[]>} contentParser - converts the contentPath string to a key array
- * @property {new PageTreeSearchResolver()} searchResolver - resolves the resulting search path to a route
  * @property {AnyObject} context - root object routes should be generated from
  */
-export class NamedPageRouteParser implements ReversibleTextParser<TraversalRoute> {
-  paramParser: ReversibleTextParser<Record<string, string>>
-  pathParser: ReversibleTextParser<CommonKey[]>
-  contentParser: ReversibleTextParser<ValidKey[]>
-  searchResolver = new PageTreeSearchResolver()
-  context: AnyObject
-
+export class NamedPageRouteParser extends RouteSearchParser {
   constructor (
-    paramParser: ReversibleTextParser<Record<string, string>>,
-    contentParser: ReversibleTextParser<ValidKey[]> = new PhasedPathParser(
-      undefined,
-      new DelimitedPathParser(),
-      new ValidKeyParser()
-    ),
-    pathParser: ReversibleTextParser<CommonKey[]> = new PhasedPathParser(
-      undefined,
-      new DelimitedPathParser(),
-      new NumericTextParser()
-    ),
+    paramParser?: ReversibleTextParser<Record<string, string>>,
     context: AnyObject = []
   ) {
-    this.paramParser = paramParser
-    this.pathParser = pathParser
-    this.contentParser = contentParser
-    this.context = context
-  }
-
-  parse (source: string): TraversalRoute {
-    const strings = this.paramParser.parse(source)
-    const params = this.parseRouteStrings(strings)
-    const searchPath = this.getSearchPath(params)
-    const search = this.searchResolver.resolve(
-      this.context,
-      searchPath,
-      1
+    super(
+      new PageContentPathParser(paramParser),
+      new PageTreeSearchResolver(),
+      getNamedPageSearch,
+      context
     )
-    return search.results.length > 0
-      ? search.results[0]
-      : createRootRoute(this.context)
-  }
-
-  stringify (source: TraversalRoute): string {
-    const strings = this.getRouteStrings(source)
-    const pathText = this.paramParser.stringify(strings)
-    return pathText
-  }
-
-  /**
-   * Extracts pathing parameter strings from the provided route
-   * @function
-   * @param {TraversalRoute} route - route used to generate the strings
-   * @returns {Record<string, string>}
-   */
-  getRouteStrings (route: TraversalRoute): Record<string, string> {
-    const strings: Record<string, string> = {}
-    const params = this.getRouteParameters(route)
-    if (params.pageId != null) {
-      strings.pageId = params.pageId
-    }
-    if (params.pagePath != null) {
-      strings.pagePath = this.pathParser.stringify(params.pagePath)
-    }
-    if (params.contentPath != null) {
-      strings.contentPath = this.contentParser.stringify(params.contentPath)
-    }
-    return strings
-  }
-
-  /**
-   * Converts parameter strings to path arrays.
-   * @function
-   * @param {Record<string, string>} strings - string map to be evaluated
-   * @returns {NamedPageRouteParameters}
-   */
-  parseRouteStrings (strings: Record<string, string>): NamedPageRouteParameters {
-    const params: NamedPageRouteParameters = {}
-    if (strings.pageId != null) {
-      params.pageId = strings.pageId
-    }
-    if (strings.pagePath != null) {
-      params.pagePath = this.pathParser.parse(strings.pagePath)
-    }
-    if (strings.contentPath != null) {
-      params.contentPath = this.contentParser.parse(strings.contentPath)
-    }
-    return params
-  }
-
-  /**
-   * Extracts pathing parameters from the provided route
-   * @function
-   * @param {TraversalRoute} route - route used to generate the strings
-   * @returns {NamedPageRouteParameters}
-   */
-  getRouteParameters (route: TraversalRoute): NamedPageRouteParameters {
-    const params: NamedPageRouteParameters = {}
-    let basePath = route.path
-    const contentIndex = basePath.indexOf('content')
-    if (contentIndex >= 0) {
-      params.contentPath = basePath.slice(contentIndex + 1)
-      basePath = basePath.slice(0, contentIndex)
-    }
-    let noName = true
-    for (let i = basePath.length - 1; i >= 0; i--) {
-      const vertexIndex = i + 1
-      const target = vertexIndex < route.vertices.length
-        ? route.vertices[vertexIndex].value
-        : route.target
-      if (
-        typeof target === 'object' &&
-        target != null
-      ) {
-        if ('id' in target) {
-          params.pageId = String(target.id)
-          break
-        }
-        if ('localName' in target) {
-          if (params.pagePath == null) {
-            params.pagePath = []
-          }
-          params.pagePath.unshift(
-            String(target.localName)
-          )
-          noName = false
-        } else if (noName) {
-          const key = basePath[i]
-          if (typeof key === 'number') {
-            if (params.pagePath == null) {
-              params.pagePath = []
-            }
-            params.pagePath.unshift(key)
-          }
-        }
-      }
-    }
-    return params
-  }
-
-  /**
-   * Extracts a search path from the provided route parameters.
-   * @function
-   * @param {NamedPageRouteParameters} params - parameters to be evaluated
-   * @returns {Array<KeyValuePair | ValidKey>}
-   */
-  getSearchPath (
-    params: NamedPageRouteParameters
-  ): Array<KeyValuePair | ValidKey> {
-    let steps: Array<KeyValuePair | ValidKey> = []
-    if (params.pageId != null) {
-      steps.push({
-        key: 'id',
-        value: params.pageId
-      })
-    }
-    if (params.pagePath != null) {
-      for (const step of params.pagePath) {
-        if (typeof step === 'string') {
-          steps.push({
-            key: 'localName',
-            value: step
-          })
-        } else {
-          if (steps.length > 0) {
-            steps.push('children')
-          }
-          steps.push(step)
-        }
-      }
-    }
-    if (params.contentPath != null && params.contentPath.length > 0) {
-      steps.push('content')
-      steps = steps.concat(params.contentPath)
-    }
-    return steps
   }
 }
