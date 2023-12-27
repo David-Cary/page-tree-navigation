@@ -4,6 +4,7 @@ import {
   EnclosedTextParser,
   NumericTextParser,
   PhasedPathParser,
+  KeyedSegmentsParser,
   KeyedURLValuesParser
 } from "../src/index"
 
@@ -94,6 +95,46 @@ describe("PhasedPathParser", () => {
     test("should encode target path", () => {
       const text = parser.stringify(['intro', 1])
       expect(text).toEqual("page/intro/1&u=me")
+    })
+  })
+})
+
+describe("KeyedSegmentsParser", () => {
+  const parser = new KeyedSegmentsParser(['main', 'sub'])
+  describe("parse", () => {
+    test("should extract encoded path", () => {
+      const results = parser.parse("room.bin")
+      expect(results).toEqual({
+        main: 'room',
+        sub: 'bin'
+      })
+    })
+    test("should handle partial paths", () => {
+      const results = parser.parse("room")
+      expect(results).toEqual({
+        main: 'room'
+      })
+    })
+  })
+  describe("stringify", () => {
+    test("should encode target values", () => {
+      const text = parser.stringify({
+        main: 'room',
+        sub: 'bin'
+      })
+      expect(text).toEqual("room.bin")
+    })
+    test("should handle missing tail", () => {
+      const text = parser.stringify({
+        main: 'room'
+      })
+      expect(text).toEqual("room.")
+    })
+    test("should handle missing head", () => {
+      const text = parser.stringify({
+        sub: 'bin'
+      })
+      expect(text).toEqual(".bin")
     })
   })
 })
