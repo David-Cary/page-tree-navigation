@@ -204,7 +204,9 @@ export class SearchTermCallbackFactory {
         state.route.vertices.push(keyedVertex)
         state.route.path.push(term)
         state.route.target = keyedVertex.getKeyValue(term)
-        visit(state)
+        if (state.route.target !== undefined) {
+          visit(state)
+        }
       }
     }
     return true

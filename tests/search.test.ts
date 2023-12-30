@@ -63,5 +63,9 @@ describe("SearchPathResolver", () => {
       expect(response.results.length).toEqual(1)
       expect(response.results[0]?.path).toEqual([1, 0, 1])
     })
+    test("Should return no matches for an invalid key", () => {
+      const response = resolver.resolve([], [0])
+      expect(response.results).toEqual([])
+    })
   })
 })
