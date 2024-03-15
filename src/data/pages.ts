@@ -365,3 +365,15 @@ export interface PageTreeDocument<CT = string> extends PublishableItem, Lockable
   style?: StyleRuleDescription[]
   pages: Array<PageTreeNode<CT>>
 }
+
+export enum SampleDocumentPermissions {
+  EDIT_STYLE = 'editStyle'
+}
+
+export enum SamplePagePermissions {
+  VIEW = 'view',
+  EDIT_CONTENT = 'editContent',
+  EDIT_CHILDREN = 'editChildren',
+  REMOVE = 'remove',
+  UNLOCK = 'unlock'
+}
