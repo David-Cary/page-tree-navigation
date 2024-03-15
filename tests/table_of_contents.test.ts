@@ -51,5 +51,79 @@ describe("TableOfContentsFactory", () => {
         }
       ])
     })
+    test("should check content lock and respect view permissions", () => {
+      const pages: PageTreeNode[] = [
+        {
+          title: 'Accessible Lock',
+          content: 'A',
+          children: [
+            {
+              content: 'A1'
+            }
+          ],
+          lock: {
+            exceptions: [
+              {
+                token: 'editor',
+                changes: {
+                  view: true
+                }
+              }
+            ]
+          }
+        },
+        {
+          title: 'Inaccessible Lock',
+          content: 'B',
+          children: [
+            {
+              content: 'B1'
+            }
+          ],
+          lock: {
+            exceptions: [
+              {
+                token: 'admin',
+                changes: {
+                  view: true
+                }
+              }
+            ]
+          }
+        },
+        {
+          title: 'Open Content',
+          content: 'C'
+        }
+      ]
+      const nodes = factory.mapContentNodes(pages, ['editor'], 'view')
+      expect(nodes).toEqual([
+        {
+          link: {
+            text: 'Accessible Lock',
+            href: '0',
+          },
+          children: [
+            {
+              link: {
+                text: 'Section 1',
+                href: '0.0'
+              },
+              children: []
+            }
+          ],
+          permissions: {
+            view: true
+          }
+        },
+        {
+          link: {
+            text: 'Open Content',
+            href: '2'
+          },
+          children: []
+        }
+      ])
+    })
   })
 })
