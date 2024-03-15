@@ -1,6 +1,6 @@
 {
   "name": "page-tree-navigation",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "description": "Provides utility classes for organizing content pages in a nested structure.",
   "main": "lib/index.js",
   "files": [
@@ -11,9 +11,11 @@
     "lint-fix": "eslint --fix --ext .ts src",
     "test": "jest tests",
     "test-breadcrumbs": "jest tests/breadcrumbs.test.ts",
+    "test-compilation": "jest tests/compilation.test.ts",
     "test-ids": "jest tests/ids.test.ts",
     "test-links": "jest tests/links.test.ts",
     "test-nav": "jest tests/navigation.test.ts",
+    "test-pages": "jest tests/pages.test.ts",
     "test-routing": "jest tests/routing.test.ts",
     "test-search": "jest tests/search.test.ts",
     "test-toc": "jest tests/table_of_contents.test.ts",

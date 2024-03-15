@@ -5,7 +5,9 @@ import {
 } from 'key-crawler'
 import {
   type ContentNode,
-  IndexedContentTreeCrawler
+  type Permissions,
+  IndexedContentTreeCrawler,
+  ContentPermissionsReader
 } from '../data/pages'
 import {
   type HyperlinkSummary,
@@ -17,10 +19,12 @@ import {
  * @interface
  * @property {HyperlinkSummary} link - hyperlink details for the element this node references
  * @property {TableOfContentsNode[]} children - child nodes for this entry
+ * @property {Permissions} permissions - indicates available actions for the target content node
  */
 export interface TableOfContentsNode {
   link: HyperlinkSummary
   children: TableOfContentsNode[]
+  permissions?: Permissions
 }
 
 /**
@@ -28,10 +32,12 @@ export interface TableOfContentsNode {
  * @class
  * @property {RouteLinkFactory} linkFactory - generates links for each content node
  * @property {IndexedContentTreeCrawler} contentCrawler - traverses the content tree
+ * @property {ContentPermissionsReader} permissionsReader - handles content locks
  */
 export class TableOfContentsFactory {
   readonly linkFactory: RouteLinkFactory
   readonly contentCrawler = new IndexedContentTreeCrawler()
+  readonly permissionsReader = new ContentPermissionsReader()
 
   constructor (
     linkFactory: RouteLinkFactory
@@ -40,19 +46,70 @@ export class TableOfContentsFactory {
   }
 
   /**
+   * Checks whether a given object has a particular permission.
+   * @function
+   * @param {any} source - item to be evaluated
+   * @param {string} key - name of the target permission
+   * @param {boolean} defaultValue - permission value to use if not found
+   * @returns {boolean}
+   */
+  checkNodePermission (
+    source: any,
+    key: string,
+    defaultValue = false
+  ): boolean {
+    if (
+      key !== '' &&
+      typeof source === 'object' &&
+      'permissions' in source
+    ) {
+      if (
+        (
+          typeof source.permissions === 'object' &&
+          source.permissions != null
+        ) ||
+        typeof source.permissions === 'boolean'
+      ) {
+        return this.permissionsReader.getPermission(
+          source.permissions,
+          key,
+          defaultValue
+        )
+      }
+    }
+    return true
+  }
+
+  /**
    * Converts a collection of content nodes to their matching table of contents entries.
    * @function
    * @param {ContentNode[]} source - nodes to be evaluated
+   * @param {string[]} accessTokens - tokens to be applied to content locks
+   * @param {string} viewPermission - name of the view permission
    * @returns {TableOfContentsNode[]}
    */
-  mapContentNodes (source: ContentNode[]): TableOfContentsNode[] {
+  mapContentNodes (
+    source: ContentNode[],
+    accessTokens: string[] = [],
+    viewPermission = ''
+  ): TableOfContentsNode[] {
     const results = this.contentCrawler.mapValue(
       source,
-      (state) => this.mapRoute(state.route),
-      (target, key, value) => { this.addNodeChild(target, key, value) }
+      (state) => {
+        const value = this.mapRoute(state.route, accessTokens)
+        if (!this.checkNodePermission(value, viewPermission, true)) {
+          state.skipIteration = true
+        }
+        return value
+      },
+      (target, key, value) => {
+        this.addNodeChild(target, key, value)
+      }
     )
     if (Array.isArray(results)) {
-      return results as TableOfContentsNode[]
+      const rows = results as TableOfContentsNode[]
+      this.pruneHiddenNodes(rows, viewPermission)
+      return rows
     }
     return []
   }
@@ -61,9 +118,13 @@ export class TableOfContentsFactory {
    * Tries to generate a table of contents node for a particular route.
    * @function
    * @param {TraversalRoute} route - route used to generate the node
+   * @param {string[]} accessTokens - tokens to be applied to content locks
    * @returns {TableOfContentsNode}
    */
-  mapRoute (route: TraversalRoute): TableOfContentsNode | TableOfContentsNode[] {
+  mapRoute (
+    route: TraversalRoute,
+    accessTokens: string[] = []
+  ): TableOfContentsNode | TableOfContentsNode[] {
     if (
       typeof route.target === 'object' &&
       route.target != null &&
@@ -72,6 +133,13 @@ export class TableOfContentsFactory {
       const node: TableOfContentsNode = {
         link: this.linkFactory.getRouteLink(route),
         children: []
+      }
+      const lock = this.permissionsReader.getContentLockOf(route.target)
+      if (lock != null) {
+        node.permissions = this.permissionsReader.getContentLockPermissions(
+          lock,
+          accessTokens
+        )
       }
       return node
     }
@@ -95,6 +163,32 @@ export class TableOfContentsFactory {
       target.children[index] = value
     } else {
       this.contentCrawler.setChildValue(target, key, value)
+    }
+  }
+
+  /**
+   * Removes any nodes that don't allow viewing from the tree.
+   * @function
+   * @param {TableOfContentsNode[]} nodes - node list to be checked
+   * @param {string} viewPermission - name of the view permission
+   */
+  pruneHiddenNodes (
+    nodes: TableOfContentsNode[],
+    viewPermission = ''
+  ): void {
+    for (let i = nodes.length - 1; i >= 0; i--) {
+      const node = nodes[i]
+      if (
+        this.permissionsReader.getPermission(
+          node.permissions,
+          viewPermission,
+          true
+        )
+      ) {
+        this.pruneHiddenNodes(node.children, viewPermission)
+      } else {
+        nodes.splice(i, 1)
+      }
     }
   }
 }

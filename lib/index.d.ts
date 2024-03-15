@@ -1,4 +1,5 @@
 export * from './data/breadcrumbs';
+export * from './data/compilation';
 export * from './data/links';
 export * from './data/navigation';
 export * from './data/pages';
