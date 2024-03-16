@@ -153,20 +153,46 @@ export declare class IndexedContentTreeCrawler extends KeyCrawler {
  * @type
  */
 export type TextMatchCallback = (a: string, b: string) => boolean;
+/**
+ * Handles determining permissions for LockableContent.
+ * @class
+ * @property {TextMatchCallback} matchTokens - matches access tokens to permission excption tokens
+ */
 export declare class ContentPermissionsReader {
     matchTokens: TextMatchCallback;
     constructor(matchTokens?: TextMatchCallback);
     /**
-     * Gets the permissions from a lock for a given set of access tokens.
+     * Extracts a given user's permissions for the target content lock.
      * @function
      * @param {ContentLock} lock - content lock to be checked
-     * @param {string[]} accessTokens - tokens to check against the lock
-     * @param {TextMatchCallback} matchTokens - comparison function to run
-     * @returns {boolean}
+     * @param {string[]} accessTokens - tokens to be matched to the lock
+     * @returns {Permissions}
      */
     getContentLockPermissions(lock: ContentLock, accessTokens: string[]): Permissions;
+    /**
+     * Extracts a given user's permissions for the target route's content.
+     * @function
+     * @param {TraversalRoute} route - route to the target contennt
+     * @param {string[]} accessTokens - tokens to be matched to the lock
+     * @returns {Permissions}
+     */
     getRoutePermissions(route: TraversalRoute, accessTokens: string[]): Permissions;
+    /**
+     * Extracts an object's content lock, if any.
+     * @function
+     * @param {any} source - item to be evaluated
+     * @param {string} key - property to check for a lock
+     * @returns {ContentLock | undefined}
+     */
     getContentLockOf(source: any, key?: string): ContentLock | undefined;
+    /**
+     * Extracts a particular permission from permission set.
+     * @function
+     * @param {Permissions | undefined} permissions - source of target permission
+     * @param {string} key - name of permission to check
+     * @param {boolean} defaultValue - value to return if key does not apply
+     * @returns {boolean}
+     */
     getPermission(permissions: Permissions | undefined, key: string, defaultValue?: boolean): boolean;
 }
 /**
@@ -183,12 +209,20 @@ export interface StyleRuleDescription {
  * Wraps content pages in a collection with additional html document header information.
  * @template CT
  * @interface
- * @property {string| undefined} id - unique document identifier
- * @property {string| undefined} title - name/description for user convenience
  * @property {StyleRuleDescription[] | undefined} style - style rules to be applied
  * @property {Array<PageTreeNode<CT>>} pages - associated content pages
  */
 export interface PageTreeDocument<CT = string> extends PublishableItem, LockableContent {
     style?: StyleRuleDescription[];
     pages: Array<PageTreeNode<CT>>;
+}
+export declare enum SampleDocumentPermissions {
+    EDIT_STYLE = "editStyle"
+}
+export declare enum SamplePagePermissions {
+    VIEW = "view",
+    EDIT_CONTENT = "editContent",
+    EDIT_CHILDREN = "editChildren",
+    REMOVE = "remove",
+    UNLOCK = "unlock"
 }

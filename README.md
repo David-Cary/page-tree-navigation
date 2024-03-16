@@ -38,6 +38,10 @@ Should you want to check a particular permission from said permissions value, yo
 
 If you have a content route, you can get the permissions value for the target using `getRoutePermissions`.  Should the target node not have it's own content lock, this will use the lock of the nearest ancestor with such a lock instead.
 
+### Sample permissions
+
+As of 1.2.1, we've provided sample permission enums.  `SamplePagePermissions` include view, edit content, edit children, remove, and unlock permissions.  `SampleDocumentPermissions` currently only cover  edit style permissions.
+
 ## Linear Navigation
 If you want to go to the first, previous, next, or last node of a content tree, you can do so with the `LinearTreeNavigator` class.  This takes a key crawler as it's only constructor parameter.  You'll usually want the `IndexedContentTreeCrawler` for content node trees, like so:
 ```
