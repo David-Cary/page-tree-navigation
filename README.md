@@ -147,7 +147,7 @@ You may have noticed that generating hyperlinks by traversal paths is accurate b
 
 One way to mitigate these is use the page's id and/or local name in the hyperlink string.  To help with this, we've provided the `NamedPageRouteParser` class.  Such parsers will try to replace part of the path with page id or local name strings where possible.
 
-By default it handles these separating the page path and content subpath with a slash.  The page pathing uses a tilde ("~") at the start to mark an id search and ".~" to mark a local name search, with period separator between child indices.  In contrast, the content path just used a period delimiter.
+By default it handles these separating the page path and content subpath with a slash.  The page pathing uses a tilde (`~`) at the start to mark an id search and `.~` to mark a local name search, with period separator between child indices.  In contrast, the content path just used a period delimiter.
 
 For example, `~main.~terms.0/body.text` would convert to:
 ```
