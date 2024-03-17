@@ -67,6 +67,8 @@ Each such factory expects a route link factory as it's first and only constructo
 
 As of 1.2.0, table of content nodes can have a permissions value attached to them.  These get automatically populated using the factory's attached `permissionsReader`.  Should you want to customize a table of content to a particular user, you can pass access tokens to `mapContentNodes` and `mapRoute`.  You can also pass `viewPermission` in as the third parameter to `mapContentNodes`.  Doing so will cause anything with the named permission set to false will be trimmed from the resulting table of contents tree.
 
+As of 1.2.2 you can choose to skip this trimming of hidden nodes by setting the 4th parameter to false.  This is mainly useful if you want to keep the indices of the table in sync with those of the document tree.  Note that the mapping function will still skip processing the children of hidden nodes.
+
 ## Breadcrumbs
 `BreadcrumbFactory` instances create links to all non-array object steps along a given route.  As with table of content factories, these take in a route link factory as their constructor parameter.  Once set up, simply call `getRouteLinks` with the target traversal route and it will return an array of hyperlink summaries for step along that route.
 
