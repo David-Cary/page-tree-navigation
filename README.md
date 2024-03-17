@@ -22,6 +22,26 @@ If you want key crawler functionality for these trees, you can use the `IndexedC
 
 If you want the crawler to use the full path, use the `ContentCrawler` subclass or `getValidContentNodeVertex` factory rule.  This can useful if you want to reference the node's content.  If that content is a tree itself you may need to add extra rules to reference subcontent.
 
+## Content Locks
+As of 1.2.0, you can attach a lock to content nodes.  These locks can be used to indicate what actions should be usable on the target node.  Such locks have 2 optional properties: permissions and exceptions.
+
+A lock's permissions value can be either a boolean or map of boolean's by permission name.  If a boolean it's assumed said booleans value applies to all permissions.
+
+The exceptions property is used to override the default values for each permission as indicated by the above property.  Each such exception consists of a token and changes property.  The token is a string to be matched against the user's access tokens to determine if the exception applies.  The changes value is the same kind of boolean / boolean map as the permissions property.
+
+### Content Permissions Reader
+We've provided a `ContentPermissionsReader` class to help you check the permissions for a given user in regards to a particular content lock.  Each such reader can have a token matching function provided in it's constructor.  The function will be applied to pairs of access tokens and exception tokens to determine whether the expection applies when said access token is provided.
+
+To get the permissions for a particular user, simply call `getContentLockPermissions` with the target content lock and user access tokens as the parameters.  This will use the above function to apply all exceptions that match the provided access to the resulting permissions value.
+
+Should you want to check a particular permission from said permissions value, you can use `getPermission` with that permission value as the first parameter and the name of the permission as the second.
+
+If you have a content route, you can get the permissions value for the target using `getRoutePermissions`.  Should the target node not have it's own content lock, this will use the lock of the nearest ancestor with such a lock instead.
+
+### Sample permissions
+
+As of 1.2.1, we've provided sample permission enums.  `SamplePagePermissions` include view, edit content, edit children, remove, and unlock permissions.  `SampleDocumentPermissions` currently only cover  edit style permissions.
+
 ## Linear Navigation
 If you want to go to the first, previous, next, or last node of a content tree, you can do so with the `LinearTreeNavigator` class.  This takes a key crawler as it's only constructor parameter.  You'll usually want the `IndexedContentTreeCrawler` for content node trees, like so:
 ```
@@ -44,6 +64,10 @@ The `PageLinkFactory` variant only requires the href callback with an indexed ti
 `TableOfContentsFactory` instances convert content node trees to a tree of `TableOfContentsNode` entries.  Each table of contents node contains a hyperlink summary (link property) that references the target content tree node.  While implementing the display for such a table is up to you, this does the leg work of setting up the references and text for that table.
 
 Each such factory expects a route link factory as it's first and only constructor parameter.  To actually create the table of contents tree, simply call the factory's `mapContentNodes` function with the array of content nodes to be converted.
+
+As of 1.2.0, table of content nodes can have a permissions value attached to them.  These get automatically populated using the factory's attached `permissionsReader`.  Should you want to customize a table of content to a particular user, you can pass access tokens to `mapContentNodes` and `mapRoute`.  You can also pass `viewPermission` in as the third parameter to `mapContentNodes`.  Doing so will cause anything with the named permission set to false will be trimmed from the resulting table of contents tree.
+
+As of 1.2.2 you can choose to skip this trimming of hidden nodes by setting the 4th parameter to false.  This is mainly useful if you want to keep the indices of the table in sync with those of the document tree.  Note that the mapping function will still skip processing the children of hidden nodes.
 
 ## Breadcrumbs
 `BreadcrumbFactory` instances create links to all non-array object steps along a given route.  As with table of content factories, these take in a route link factory as their constructor parameter.  Once set up, simply call `getRouteLinks` with the target traversal route and it will return an array of hyperlink summaries for step along that route.
@@ -105,7 +129,7 @@ Each such resolver will use it's list of term rules to determine the search to p
 Each of those rules is a callback function that takes a traversal state, search term, and visitation callback as it's parameters and returns true if the search term is a valid one for that rule.  The resolver will pass search handling on to the first callback that return true for it and skip all remaining rules.  That visitation callback will in turn be called for each node it finds that matches the rule's criteria.
 
 ### Search Term Callback Factories
-An easy way to generate search path rules is with a `SearchTermCallbackFactory`.  These provide a `getSearchCallback` and 
+An easy way to generate search path rules is with a `SearchTermCallbackFactory`.  These provide a `getSearchCallback` and
 
 `getSearchCallback` expects a check generation callback and allows a "shallow" flag as it's second parameter.  The check generation callback accepts a term returns a check callback if the term is valid.  Said check callback takes in a traversal state and returns either true or false.
 
@@ -152,3 +176,20 @@ Note that the `NamedPageRouteParser` is a specialized `RouteSearchParser` subcla
   * searchResolver - Handles resolving the above search within the provided context.
   * getSearch - Extracts a search path from a traversal route.
   * context - Object to search within then resolving a route.
+
+## Publication
+As of version 1.2.0, we've added support for attaching `PublicationData` to pages and documents via their `published` property.  Said property is a list of `PublicationData` entries.  Each entry will at minimum have an `on` property containing their publication date.  They can also have the following properties:
+  * as - id of the property at time of publication
+  * by - name / id of the content's creator / owner
+  * version - optional version string
+
+To attach this data, simply pass the target into the `publishItem` utility function.  This will automatically attach the publication date and will try to set the entry's `as` property based on it's current id.  The function also lets you provide the author and version as additional parameters.
+
+## Compilation Functions
+Version 1.2.0 introduces some helpful utility functions for combining documents, making it easier to create a compilation that combines multiple documents in one.
+
+`getStyleRulesConflicts` can be used to check if two documents have any conflicting style rules.  Simply pass the style for both documents in as parameters.  The result will be a list of pairings where each entry has a rule from each list that share selectors but have different effects.  If the resulting list is empty, there are no conflicts.
+
+Should you have no conflicts or be good with overwriting some rules, you can use `extendStyleRules` to merge multiple style rule sets.  This will take the rules from all provided sets.  If multiple sets have a rule with the same selector, it gives precedence to later parameters.
+
+`getDocumentAsPage` converts a PageTreeDocument to a PageTreeNode.  Note that since documents don't have content on their own you'll need to provide that as it's second parameter.  Note that the resulting page will contain a reference to the original document in the page's `source` property.  Note that the style rules aren't supported in content nodes by default, so you'll need to modify the rules of the document you're adding the page to if you want those style rules to get applied.
