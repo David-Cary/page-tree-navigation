@@ -91,7 +91,8 @@ export class TableOfContentsFactory {
   mapContentNodes (
     source: ContentNode[],
     accessTokens: string[] = [],
-    viewPermission = ''
+    viewPermission = '',
+    prune = true
   ): TableOfContentsNode[] {
     const results = this.contentCrawler.mapValue(
       source,
@@ -108,7 +109,7 @@ export class TableOfContentsFactory {
     )
     if (Array.isArray(results)) {
       const rows = results as TableOfContentsNode[]
-      this.pruneHiddenNodes(rows, viewPermission)
+      if (prune) this.pruneHiddenNodes(rows, viewPermission)
       return rows
     }
     return []

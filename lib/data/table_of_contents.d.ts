@@ -42,7 +42,7 @@ export declare class TableOfContentsFactory {
      * @param {string} viewPermission - name of the view permission
      * @returns {TableOfContentsNode[]}
      */
-    mapContentNodes(source: ContentNode[], accessTokens?: string[], viewPermission?: string): TableOfContentsNode[];
+    mapContentNodes(source: ContentNode[], accessTokens?: string[], viewPermission?: string, prune?: boolean): TableOfContentsNode[];
     /**
      * Tries to generate a table of contents node for a particular route.
      * @function
