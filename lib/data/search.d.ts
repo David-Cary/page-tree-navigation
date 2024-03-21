@@ -79,6 +79,23 @@ export declare class SearchTermCallbackFactory {
      * @returns {boolean} true if term is a valid key
      */
     resolveKey(state: TraversalState, term: ValueMap | ValidKey, visit: (state: TraversalState) => void): boolean;
+    /**
+     * Generates a callback for treating the term as an array property's index.
+     * @function
+     * @param {string[]} properties - properties to be checked for an array
+     * @returns {SearchTermCallback}
+     */
+    getPropertyItemAtCallback(properties: string[]): SearchTermCallback;
+    /**
+     * Visits the indexed item of the first named array property found.
+     * @function
+     * @param {string[]} properties - properties to be checked for an array
+     * @param {TraversalState} state - current traversal state
+     * @param {ValueMap | ValidKey} term - search term to be used
+     * @param {(state: TraversalState) => void} visit - callback to be executed on the matching child
+     * @returns {boolean} true if the rule applies
+     */
+    resolvePropertyItemAt(properties: string[], state: TraversalState, term: ValueMap | ValidKey, visit: (state: TraversalState) => void): boolean;
 }
 /**
  * Links a particular key to a given value.

@@ -37,6 +37,7 @@ export class PageTreeSearchResolver extends SearchPathResolver {
     )
     super([
       ruleFactory.getPropertySearch(),
+      ruleFactory.getPropertyItemAtCallback(['children', 'content']),
       ruleFactory.getKeyCallback()
     ])
     this.ruleFactory = ruleFactory

@@ -5,7 +5,8 @@ import {
   PageContentPathParser,
   NamedPageRouteParser,
   KeyedURLValuesParser,
-  ContentCrawler
+  ContentCrawler,
+  IndexedContentTreeCrawler
 } from "../src/index"
 
 describe("KeyedPropertySearchParser", () => {
@@ -296,10 +297,19 @@ describe("PageRouteParser", () => {
   describe("stringify", () => {
     test("should convert the route to a url", () => {
       const url = parser.stringify(textRoute)
-      //const searchPath = parser.getSearch(textRoute)
-      //expect(url).toEqual(null)
       expect(url).toEqual(
         'http://my.site/view/~mainPage.~intro.~terms.0.1?contentPath=body.text'
+      )
+    })
+    test("should be able to handle page index route", () => {
+      const indexedCrawler = new IndexedContentTreeCrawler()
+      const route = indexedCrawler.createRouteFrom(
+        parser.context,
+        [0, 0]
+      )
+      const url = parser.stringify(route)
+      expect(url).toEqual(
+        'http://my.site/view/~mainPage.~intro'
       )
     })
   })

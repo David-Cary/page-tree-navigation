@@ -137,6 +137,8 @@ The "shallow" flag tells the search to skip iterating though any descendants of 
 
 `getKeyCallback` is significantly simpler, returning a rule that treats all non-object terms as keys and directing the search to the node pointed at by that key.  In effect this lets you combine normal path keys with more elaborate search steps.  That allows for things like "get the first child of the node with the following id".
 
+As of 1.2.3, there's also a `getPropertyItemAtCallback`.  This lets you try to apply indices to an object by checking the provided properties by name, applying that index to the first such array property found.  This is mainly used to build search handlers that can handle index paths as well as more explicit property paths.
+
 ### Property Searches
 `PropertySearchFactory` simplifies more setting up checks for specific property values.  Just use the `getPropertySearch` to generate a search rule to will treat any object with the "key" property as a property check.  Said check will return true true if the target node has a property whose name matches the term's key and whose value matches the term's "value" property.  For example, giving it the term `{ key: "id", value: "main" }` would return true for a node whose id is "main".
 

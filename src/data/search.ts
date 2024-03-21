@@ -201,15 +201,76 @@ export class SearchTermCallbackFactory {
       const vertex = this.vertexFactory.createVertex(targetObject)
       if ('keyProvider' in vertex) {
         const keyedVertex = vertex as KeyValueVertex
-        state.route.vertices.push(keyedVertex)
-        state.route.path.push(term)
-        state.route.target = keyedVertex.getKeyValue(term)
-        if (state.route.target !== undefined) {
+        const keyValue = keyedVertex.getKeyValue(term)
+        if (keyValue !== undefined) {
+          state.route.vertices.push(keyedVertex)
+          state.route.path.push(term)
+          state.route.target = keyValue
           visit(state)
         }
       }
     }
     return true
+  }
+
+  /**
+   * Generates a callback for treating the term as an array property's index.
+   * @function
+   * @param {string[]} properties - properties to be checked for an array
+   * @returns {SearchTermCallback}
+   */
+  getPropertyItemAtCallback (
+    properties: string[]
+  ): SearchTermCallback {
+    return (
+      state: TraversalState,
+      term: ValueMap | ValidKey,
+      visit: (state: TraversalState) => void
+    ) => this.resolvePropertyItemAt(properties, state, term, visit)
+  }
+
+  /**
+   * Visits the indexed item of the first named array property found.
+   * @function
+   * @param {string[]} properties - properties to be checked for an array
+   * @param {TraversalState} state - current traversal state
+   * @param {ValueMap | ValidKey} term - search term to be used
+   * @param {(state: TraversalState) => void} visit - callback to be executed on the matching child
+   * @returns {boolean} true if the rule applies
+   */
+  resolvePropertyItemAt (
+    properties: string[],
+    state: TraversalState,
+    term: ValueMap | ValidKey,
+    visit: (state: TraversalState) => void
+  ): boolean {
+    if (typeof term !== 'number') return false
+    const targetValue = state.route.target
+    if (typeof targetValue === 'object' && targetValue !== null) {
+      if (Array.isArray(targetValue)) return false
+      const parentObject = targetValue as ValueMap
+      for (const property of properties) {
+        const propertyValue = parentObject[property]
+        if (Array.isArray(propertyValue)) {
+          const collection = propertyValue
+          const index = term >= 0
+            ? term
+            : Math.max(0, collection.length + term)
+          state.route.vertices.push(
+            this.vertexFactory.createVertex(parentObject) as KeyValueVertex,
+            this.vertexFactory.createVertex(collection) as KeyValueVertex
+          )
+          state.route.path.push(
+            property,
+            index
+          )
+          state.route.target = collection[index]
+          visit(state)
+          return true
+        }
+      }
+    }
+    return false
   }
 }
 
