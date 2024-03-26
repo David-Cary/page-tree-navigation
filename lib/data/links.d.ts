@@ -101,12 +101,19 @@ export declare class EnclosedTextParser implements ReversibleTextParser<string> 
     stringify(text: string): string;
 }
 /**
+ * Creates a unique search path to the content targeted to by a given traversal route.
+ * @function
+ * @param {TraversalRoute} route - traversal route to be evaluated
+ * @returns {Array<ValueMap | ValidKey>}
+ */
+export declare function parseIndexString(source: string): CommonKey;
+/**
  * Tries to convert any number that's been strigified back to a number.
  * @class
  * @implements ReversibleTextParser<CommonKey>
  */
 export declare class NumericTextParser implements ReversibleTextParser<CommonKey> {
-    parse(source: string): CommonKey;
+    parse: typeof parseIndexString;
     stringify(source: CommonKey): string;
 }
 /**

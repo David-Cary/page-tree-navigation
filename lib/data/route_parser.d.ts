@@ -1,4 +1,4 @@
-import { type ValidKey, type TraversalRoute, type AnyObject } from 'key-crawler';
+import { type ValidKey, type TraversalRoute, type AnyObject, type CommonKey } from 'key-crawler';
 import { type ReversibleTextParser } from '../data/links';
 import { SearchPathResolver, PropertySearchFactory, type ValueMap } from '../data/search';
 /**
@@ -22,6 +22,7 @@ export declare class PageTreeSearchResolver extends SearchPathResolver {
  * @property {ReversibleTextParser<T>} parser - handles converting the target term to a string and vice versa
  */
 export interface PrefixedPathStepRule<T> {
+    name?: string;
     prefix: string;
     decodedPrefix?: string;
     check?: (source: T) => boolean;
@@ -34,12 +35,12 @@ export interface PrefixedPathStepRule<T> {
  * @property {string} key - key to be used in each generated key value pair
  * @property {((value: string) => boolean) | undefined} validate - optional function to check the provided value, resulting in string instead of a key value pair if that check fails
  */
-export declare class KeyedPropertySearchParser implements ReversibleTextParser<ValueMap | string> {
+export declare class KeyedPropertySearchParser implements ReversibleTextParser<ValueMap | CommonKey> {
     key: string;
     validate?: (value: string) => boolean;
     constructor(key: string, validate?: (value: string) => boolean);
-    parse(source: string): (ValueMap | string);
-    stringify(source: (ValueMap | string)): string;
+    parse(source: string): (ValueMap | CommonKey);
+    stringify(source: (ValueMap | CommonKey)): string;
 }
 /**
  * Converts the provided search string to a series of search terms and vice versa.
@@ -49,11 +50,11 @@ export declare class KeyedPropertySearchParser implements ReversibleTextParser<V
  * @property {Array<PrefixedPathStepRule<ValueMap | string>>} rules - describes how to handle text segments based on the preceding delimiter
  */
 export declare class SearchPathParser implements ReversibleTextParser<Array<ValueMap | ValidKey>> {
-    readonly headParser?: ReversibleTextParser<ValueMap | string>;
-    readonly rules: Array<PrefixedPathStepRule<ValueMap | string>>;
-    constructor(rules?: Array<PrefixedPathStepRule<ValueMap | string>>, headParser?: ReversibleTextParser<ValueMap | string>);
+    readonly headParser?: ReversibleTextParser<ValueMap | CommonKey>;
+    readonly rules: Array<PrefixedPathStepRule<ValueMap | CommonKey>>;
+    constructor(rules?: Array<PrefixedPathStepRule<ValueMap | CommonKey>>, headParser?: ReversibleTextParser<ValueMap | CommonKey>);
     parse(source: string): Array<ValueMap | ValidKey>;
-    parseVia(source: string, rule: PrefixedPathStepRule<ValueMap | string>): Array<ValueMap | ValidKey>;
+    parseVia(source: string, rule: PrefixedPathStepRule<ValueMap | CommonKey>): Array<ValueMap | ValidKey>;
     stringify(source: Array<ValueMap | ValidKey>): string;
 }
 /**

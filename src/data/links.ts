@@ -230,15 +230,23 @@ export class EnclosedTextParser implements ReversibleTextParser<string> {
 }
 
 /**
+ * Creates a unique search path to the content targeted to by a given traversal route.
+ * @function
+ * @param {TraversalRoute} route - traversal route to be evaluated
+ * @returns {Array<ValueMap | ValidKey>}
+ */
+export function parseIndexString (source: string): CommonKey {
+  const num = Number(source)
+  return isNaN(num) ? source : num
+}
+
+/**
  * Tries to convert any number that's been strigified back to a number.
  * @class
  * @implements ReversibleTextParser<CommonKey>
  */
 export class NumericTextParser implements ReversibleTextParser<CommonKey> {
-  parse (source: string): CommonKey {
-    const num = Number(source)
-    return isNaN(num) ? source : num
-  }
+  parse = parseIndexString
 
   stringify (source: CommonKey): string {
     return String(source)
@@ -268,8 +276,7 @@ export class ValidKeyParser implements ReversibleTextParser<ValidKey> {
       const symbolName = source.substring(this.symbolPrefix.length)
       return Symbol.for(symbolName)
     }
-    const num = Number(source)
-    return isNaN(num) ? source : num
+    return parseIndexString(source)
   }
 
   stringify (source: ValidKey): string {

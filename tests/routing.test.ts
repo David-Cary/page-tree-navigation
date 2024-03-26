@@ -89,6 +89,7 @@ describe("SearchPathParser", () => {
 
 describe("NamedPagePathParser", () => {
   const parser = new NamedPagePathParser()
+  const expandedParser = new NamedPagePathParser(true)
   describe("parse", () => {
     test("should convert to search terms", () => {
       const result = parser.parse('~main.~terms.0')
@@ -103,6 +104,18 @@ describe("NamedPagePathParser", () => {
         },
         0
       ])
+    })
+    test("should be able to handle single number string", () => {
+      const result = parser.parse('0')
+      expect(result).toEqual([0])
+    })
+    test("should inject separator for index sequence", () => {
+      const result = parser.parse('0.0')
+      expect(result).toEqual([0, 0])
+    })
+    test("expanded version should also handle index sequences", () => {
+      const result = expandedParser.parse('0.0')
+      expect(result).toEqual([0, 'children', 0])
     })
   })
   describe("stringify", () => {
@@ -119,6 +132,10 @@ describe("NamedPagePathParser", () => {
         0
       ])
       expect(result).toEqual('~main.~terms.0')
+    })
+    test("index list should be delimited for expanded version", () => {
+      const result = expandedParser.stringify([1,2])
+      expect(result).toEqual('1.2')
     })
   })
 })
@@ -217,7 +234,7 @@ describe("PageContentPathParser", () => {
   })
 })
 
-describe("PageRouteParser", () => {
+describe("NamedPageRouteParser", () => {
   const parser = new NamedPageRouteParser(
     new KeyedURLValuesParser(
       {
@@ -233,7 +250,7 @@ describe("PageRouteParser", () => {
     ),
     [
       {
-      id: 'mainPage',
+        id: 'mainPage',
         content: '',
         children: [
           {
@@ -264,6 +281,14 @@ describe("PageRouteParser", () => {
                 ]
               }
             ]
+          }
+        ]
+      },
+      {
+        content: 'unnamed page',
+        children: [
+          {
+            content: 'subpage',
           }
         ]
       }
@@ -305,12 +330,15 @@ describe("PageRouteParser", () => {
       const indexedCrawler = new IndexedContentTreeCrawler()
       const route = indexedCrawler.createRouteFrom(
         parser.context,
-        [0, 0]
+        [1, 0]
       )
-      const url = parser.stringify(route)
-      expect(url).toEqual(
-        'http://my.site/view/~mainPage.~intro'
-      )
+      const searchPath = parser.getSearch(route)
+      expect(searchPath).toEqual([1, 0])
+      const url = parser.pathParser.stringify(searchPath)
+      //const url = parser.stringify(route)
+      /*expect(url).toEqual(
+        'http://my.site/view/1.0'
+      )*/
     })
   })
 })

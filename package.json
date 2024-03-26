@@ -1,6 +1,6 @@
 {
   "name": "page-tree-navigation",
-  "version": "1.2.3",
+  "version": "1.2.4",
   "description": "Provides utility classes for organizing content pages in a nested structure.",
   "main": "lib/index.js",
   "files": [

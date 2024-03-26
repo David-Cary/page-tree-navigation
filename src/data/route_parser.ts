@@ -3,6 +3,7 @@ import {
   type TraversalRoute,
   ValueVertexFactory,
   type AnyObject,
+  type CommonKey,
   createRootRoute
 } from 'key-crawler'
 import {
@@ -11,7 +12,8 @@ import {
 import {
   type ReversibleTextParser,
   KeyedSegmentsParser,
-  DelimitedPathParser
+  DelimitedPathParser,
+  parseIndexString
 } from '../data/links'
 import {
   SearchPathResolver,
@@ -54,6 +56,7 @@ export class PageTreeSearchResolver extends SearchPathResolver {
  * @property {ReversibleTextParser<T>} parser - handles converting the target term to a string and vice versa
  */
 export interface PrefixedPathStepRule<T> {
+  name?: string
   prefix: string
   decodedPrefix?: string
   check?: (source: T) => boolean
@@ -67,7 +70,7 @@ export interface PrefixedPathStepRule<T> {
  * @property {string} key - key to be used in each generated key value pair
  * @property {((value: string) => boolean) | undefined} validate - optional function to check the provided value, resulting in string instead of a key value pair if that check fails
  */
-export class KeyedPropertySearchParser implements ReversibleTextParser<ValueMap | string> {
+export class KeyedPropertySearchParser implements ReversibleTextParser<ValueMap | CommonKey> {
   key: string
   validate?: (value: string) => boolean
 
@@ -79,7 +82,7 @@ export class KeyedPropertySearchParser implements ReversibleTextParser<ValueMap 
     this.validate = validate
   }
 
-  parse (source: string): (ValueMap | string) {
+  parse (source: string): (ValueMap | CommonKey) {
     if (this.validate == null || this.validate(source)) {
       const result = {
         key: this.key,
@@ -87,11 +90,11 @@ export class KeyedPropertySearchParser implements ReversibleTextParser<ValueMap 
       }
       return result
     }
-    return source
+    return parseIndexString(source)
   }
 
-  stringify (source: (ValueMap | string)): string {
-    return typeof source === 'object' ? String(source.value) : source
+  stringify (source: (ValueMap | CommonKey)): string {
+    return typeof source === 'object' ? String(source.value) : String(source)
   }
 }
 
@@ -103,12 +106,12 @@ export class KeyedPropertySearchParser implements ReversibleTextParser<ValueMap 
  * @property {Array<PrefixedPathStepRule<ValueMap | string>>} rules - describes how to handle text segments based on the preceding delimiter
  */
 export class SearchPathParser implements ReversibleTextParser<Array<ValueMap | ValidKey>> {
-  readonly headParser?: ReversibleTextParser<ValueMap | string>
-  readonly rules: Array<PrefixedPathStepRule<ValueMap | string>>
+  readonly headParser?: ReversibleTextParser<ValueMap | CommonKey>
+  readonly rules: Array<PrefixedPathStepRule<ValueMap | CommonKey>>
 
   constructor (
-    rules: Array<PrefixedPathStepRule<ValueMap | string>> = [],
-    headParser?: ReversibleTextParser<ValueMap | string>
+    rules: Array<PrefixedPathStepRule<ValueMap | CommonKey>> = [],
+    headParser?: ReversibleTextParser<ValueMap | CommonKey>
   ) {
     this.headParser = headParser
     this.rules = rules
@@ -116,7 +119,7 @@ export class SearchPathParser implements ReversibleTextParser<Array<ValueMap | V
 
   parse (source: string): Array<ValueMap | ValidKey> {
     let steps: Array<ValueMap | ValidKey> = []
-    let activeRule: PrefixedPathStepRule<ValueMap | string> | undefined
+    let activeRule: PrefixedPathStepRule<ValueMap | CommonKey> | undefined
     let priorText = ''
     let remainder = source
     while (remainder !== '') {
@@ -130,7 +133,7 @@ export class SearchPathParser implements ReversibleTextParser<Array<ValueMap | V
         } else if (priorText !== '') {
           const substep = (this.headParser != null)
             ? this.headParser.parse(priorText)
-            : priorText
+            : parseIndexString(priorText)
           steps.push(substep)
         }
         priorText = ''
@@ -144,13 +147,16 @@ export class SearchPathParser implements ReversibleTextParser<Array<ValueMap | V
     if (activeRule != null) {
       const substeps = this.parseVia(priorText, activeRule)
       steps = steps.concat(substeps)
+    } else if (priorText !== '') {
+      const step = parseIndexString(priorText)
+      steps.push(step)
     }
     return steps
   }
 
   parseVia (
     source: string,
-    rule: PrefixedPathStepRule<ValueMap | string>
+    rule: PrefixedPathStepRule<ValueMap | CommonKey>
   ): Array<ValueMap | ValidKey> {
     const results: Array<ValueMap | ValidKey> = []
     if (rule.decodedPrefix != null) {
@@ -190,7 +196,11 @@ export class SearchPathParser implements ReversibleTextParser<Array<ValueMap | V
       } else if (this.headParser != null && i === 0) {
         pathText += this.headParser.stringify(term)
       } else {
-        if (activeDelimiter == null && delimiterRule != null) {
+        if (
+          pathText !== '' &&
+          activeDelimiter == null &&
+          delimiterRule != null
+        ) {
           pathText += delimiterRule.prefix
         }
         pathText += String(step)
@@ -301,26 +311,36 @@ export function getNamedPageSearch (route: TraversalRoute): Array<ValueMap | Val
  */
 export class NamedPagePathParser extends SearchPathParser {
   constructor (expanded = false) {
-    super(
-      [
-        {
-          prefix: '.~',
-          check: (source) => typeof source === 'object' && source.key === 'localName',
-          parser: new KeyedPropertySearchParser('localName')
-        },
-        {
-          prefix: '~',
-          check: (source) => typeof source === 'object' && source.key === 'id',
-          parser: new KeyedPropertySearchParser('id')
-        },
-        {
-          prefix: '.'
-        }
-      ]
-    )
+    const rules: Array<PrefixedPathStepRule<ValueMap | CommonKey>> = [
+      {
+        name: 'localNameRule',
+        prefix: '.~',
+        check: (source) => typeof source === 'object' && source.key === 'localName',
+        parser: new KeyedPropertySearchParser('localName')
+      },
+      {
+        name: 'idRule',
+        prefix: '~',
+        check: (source) => typeof source === 'object' && source.key === 'id',
+        parser: new KeyedPropertySearchParser('id')
+      }
+    ]
     if (expanded) {
-      this.rules[2].decodedPrefix = 'children'
+      rules.push(
+        {
+          name: 'childrenRule',
+          prefix: '.',
+          decodedPrefix: 'children'
+        }
+      )
     }
+    rules.push(
+      {
+        name: 'separatorRule',
+        prefix: '.'
+      }
+    )
+    super(rules)
   }
 }
 
