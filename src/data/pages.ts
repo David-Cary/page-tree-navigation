@@ -401,5 +401,8 @@ export enum SamplePagePermissions {
   EDIT_CONTENT = 'editContent',
   EDIT_CHILDREN = 'editChildren',
   REMOVE = 'remove',
+  RENAME = 'rename',
+  PUBLISH = 'publish',
+  LOCK = 'lock',
   UNLOCK = 'unlock'
 }
