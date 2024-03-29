@@ -1,5 +1,6 @@
 import {
   PageTreeNode,
+  ContentPermissionsReader,
   publishItem,
   getPagesById
 } from "../src/index"
@@ -50,5 +51,32 @@ describe("getPagesById", () => {
       ]
     )
     expect(Object.keys(results)).toEqual(['a', 'a1', 'b', 'b1'])
+  })
+})
+
+describe("ContentPermissionsReader", () => {
+  const reader = new ContentPermissionsReader()
+  describe("getPermissionSubset", () => {
+    test("should only return permissions covered by the provided key map", () => {
+      const subset = reader.getPermissionSubset(
+        {
+          view: true,
+          edit: true
+        },
+        {
+          edit: false
+        }
+      )
+      expect(subset).toEqual({ edit: true })
+    })
+    test("if boolean, that should be applied to all defaults", () => {
+      const subset = reader.getPermissionSubset(
+        true,
+        {
+          edit: false
+        }
+      )
+      expect(subset).toEqual({ edit: true })
+    })
   })
 })

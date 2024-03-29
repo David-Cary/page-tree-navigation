@@ -38,6 +38,8 @@ To get the permissions for a particular user, simply call `getContentLockPermiss
 
 Should you want to check a particular permission from said permissions value, you can use `getPermission` with that permission value as the first parameter and the name of the permission as the second.
 
+If you're looking to get muliple permissions back at once, version 1.2.7 adds `getPermissionSubset`.  Instead of a single key and default value, that takes a map of default values and will return permissions for each of that map's keys using the provided default values.
+
 If you have a content route, you can get the permissions value for the target using `getRoutePermissions`.  Should the target node not have it's own content lock, this will use the lock of the nearest ancestor with such a lock instead.
 
 ### Sample permissions

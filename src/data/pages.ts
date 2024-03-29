@@ -367,6 +367,33 @@ export class ContentPermissionsReader {
     }
     return permissions ?? defaultValue
   }
+
+  /**
+   * Extracts specific permissions using a default value map.
+   * @function
+   * @param {Permissions | undefined} permissions - source of target permissions
+   * @param {Record<string, boolean>} defaults - keys to return and their associated default values
+   * @returns {Record<string, boolean>}
+   */
+  getPermissionSubset (
+    permissions: Permissions | undefined,
+    defaults: Record<string, boolean>
+  ): Record<string, boolean> {
+    const results: Record<string, boolean> = {}
+    if (typeof permissions === 'object') {
+      for (const key in defaults) {
+        results[key] = key in permissions
+          ? permissions[key]
+          : defaults[key]
+      }
+    } else {
+      const value = permissions === true
+      for (const key in defaults) {
+        results[key] = value
+      }
+    }
+    return results
+  }
 }
 
 /**

@@ -202,6 +202,14 @@ export declare class ContentPermissionsReader {
      * @returns {boolean}
      */
     getPermission(permissions: Permissions | undefined, key: string, defaultValue?: boolean): boolean;
+    /**
+     * Extracts specific permissions using a default value map.
+     * @function
+     * @param {Permissions | undefined} permissions - source of target permissions
+     * @param {Record<string, boolean>} defaults - keys to return and their associated default values
+     * @returns {Record<string, boolean>}
+     */
+    getPermissionSubset(permissions: Permissions | undefined, defaults: Record<string, boolean>): Record<string, boolean>;
 }
 /**
  * Used to summarize css rules.
