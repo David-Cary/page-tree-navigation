@@ -103,6 +103,14 @@ export interface PageTreeNode<CT = string> extends ContentNode<CT>, PublishableI
     source?: ContentSourceReference;
 }
 /**
+ * Retrieve a mapping of pages by their id property.
+ * @function
+ * @param {Array<PageTreeNode<CT>>} pages - list of pages to evaluate
+ * @param {Record<string, PageTreeNode<CT>>} results - optional starting point for mapping
+ * @returns {Record<string, PageTreeNode<CT>>}
+ */
+export declare function getPagesById<CT = string>(pages: Array<PageTreeNode<CT>>, results?: Record<string, PageTreeNode<CT>>): Record<string, PageTreeNode<CT>>;
+/**
  * Used to traverse through the children and content of a content node.
  * @class
  * @extends DefinedObjectVertex

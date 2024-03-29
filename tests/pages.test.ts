@@ -1,6 +1,7 @@
 import {
   PageTreeNode,
-  publishItem
+  publishItem,
+  getPagesById
 } from "../src/index"
 
 describe("publishItem", () => {
@@ -19,5 +20,35 @@ describe("publishItem", () => {
         })
       ]
     )
+  })
+})
+
+describe("getPagesById", () => {
+  test("should return mapping of pages by id", () => {
+    const results = getPagesById(
+      [
+        {
+          id: 'a',
+          content: 'fruit',
+          children: [
+            {
+              id: 'a1',
+              content: 'apple'
+            }
+          ]
+        },
+        {
+          id: 'b',
+          content: 'veggies',
+          children: [
+            {
+              id: 'b1',
+              content: 'carrot'
+            }
+          ]
+        }
+      ]
+    )
+    expect(Object.keys(results)).toEqual(['a', 'a1', 'b', 'b1'])
   })
 })
