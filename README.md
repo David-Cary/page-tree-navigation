@@ -22,6 +22,8 @@ If you want key crawler functionality for these trees, you can use the `IndexedC
 
 If you want the crawler to use the full path, use the `ContentCrawler` subclass or `getValidContentNodeVertex` factory rule.  This can useful if you want to reference the node's content.  If that content is a tree itself you may need to add extra rules to reference subcontent.
 
+As of 1.2.5 we've added the `getPagesById` function to group pages by id.  This can be used to check for unused ids as well as multiple pages with the same id.
+
 ## Content Locks
 As of 1.2.0, you can attach a lock to content nodes.  These locks can be used to indicate what actions should be usable on the target node.  Such locks have 2 optional properties: permissions and exceptions.
 

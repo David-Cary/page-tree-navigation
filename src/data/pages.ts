@@ -142,16 +142,20 @@ export interface PageTreeNode<CT = string> extends ContentNode<CT>, PublishableI
  * Retrieve a mapping of pages by their id property.
  * @function
  * @param {Array<PageTreeNode<CT>>} pages - list of pages to evaluate
- * @param {Record<string, PageTreeNode<CT>>} results - optional starting point for mapping
- * @returns {Record<string, PageTreeNode<CT>>}
+ * @param {Record<string, Array<PageTreeNode<CT>>>} results - optional starting point for mapping
+ * @returns {Record<string, Array<PageTreeNode<CT>>>}
  */
 export function getPagesById<CT = string> (
   pages: Array<PageTreeNode<CT>>,
-  results: Record<string, PageTreeNode<CT>> = {}
-): Record<string, PageTreeNode<CT>> {
+  results: Record<string, Array<PageTreeNode<CT>>> = {}
+): Record<string, Array<PageTreeNode<CT>>> {
   for (const page of pages) {
     if (page.id != null && page.id !== '') {
-      results[page.id] = page
+      if (page.id in results) {
+        results[page.id].push(page)
+      } else {
+        results[page.id] = [page]
+      }
     }
     if (page.children != null) {
       getPagesById(page.children, results)
